@@ -1,0 +1,4 @@
+python-telegram-bot
+chess.com
+python-chess
+python-dateutil
