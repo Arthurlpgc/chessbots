@@ -64,26 +64,28 @@ def get_ratings_handler(update, context):
     if len(args) > 1:
         for arg in args[1:]:
             if arg not in TRACKED_MODES:
-                context.bot.send_message(chat_id=update.effective_chat.id,
-                                        text="Why would you be interested in {}? This is not supported, remove it!".format(arg))
+                send_message(context, update, "Why would you be interested in {}? This is not supported, remove it!".format(arg))
                 return
             modes.append(arg)
     else:
         modes = TRACKED_MODES
     
-    context.bot.send_message(chat_id=update.effective_chat.id,
-                            text="Alright, give me a second...")
+    send_message(context, update, "Alright, give me a second...")
     
     accounts = get_all_linked_accounts()
     modes_buckets = {}
     for _, chess_user in accounts.items():
         ratings = get_ratings(chess_user)
         for (chess_type, stats) in ratings.items():
-            mode = chess_type.split('chess_')[1]
+            mode = chess_type.split('chess_')[-1]
             if mode not in modes:
                 continue
 
+            rd = stats['rd']
             rating = stats['rating']
+
+            if rd > 80:
+                continue
 
             if mode not in modes_buckets.keys():
                 modes_buckets[mode] = []
@@ -94,12 +96,14 @@ def get_ratings_handler(update, context):
     
     message = ''
     for mode in modes:
-        message += format_mode_ratings(mode, modes_buckets[mode])
+        if mode in modes_buckets.keys():
+            message += format_mode_ratings(mode, modes_buckets[mode])
+
     if len(message) > 0:
         message = message[:-1]
-    
-    context.bot.send_message(chat_id=update.effective_chat.id,
-                            text=message)
+        send_message(context, update, message)
+    else:
+        send_message(context, update, "Nothing to show here. Are you sure the people are playing this?")
 
 
 def link_account_handler(update, context):

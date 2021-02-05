@@ -3,7 +3,6 @@ from chessdotcom import get_player_stats
 
 
 def get_ratings(player):
-    print(player)
     stats = get_player_stats(player).json
     ret = {}
     for chess_type in stats:
