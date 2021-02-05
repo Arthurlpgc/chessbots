@@ -3,9 +3,11 @@ import json
 import datetime
 from rating import get_ratings
 from games import get_top_eco_analysis
-from db import link_account, get_linked_account
+from db import link_account, get_linked_account, get_all_linked_accounts
 
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
+
+TRACKED_MODES = ['rapid', 'blitz', 'bullet', 'daily']
 
 updater = Updater(token=TOKEN, use_context=True)
 dispatcher = updater.dispatcher
@@ -47,6 +49,57 @@ def get_rating_handler(update, context):
     else:
         player = words[1]
         get_rating_for_player_handler(player, update, context)
+
+
+def format_mode_ratings(mode, bucket):
+    message = f'Leaderboard for {mode} (top 10):\n'
+    for player, rating in bucket:
+        message += f'{player} - {rating}\n'
+    return message + f'\n'
+
+def get_ratings_handler(update, context):
+    args = update.message.text.split(' ')
+
+    modes = []
+    if len(args) > 1:
+        for arg in args[1:]:
+            if arg not in TRACKED_MODES:
+                context.bot.send_message(chat_id=update.effective_chat.id,
+                                        text="Why would you be interested in {}? This is not supported, remove it!".format(arg))
+                return
+            modes.append(arg)
+    else:
+        modes = TRACKED_MODES
+    
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                            text="Alright, give me a second...")
+    
+    accounts = get_all_linked_accounts()
+    modes_buckets = {}
+    for _, chess_user in accounts.items():
+        ratings = get_ratings(chess_user)
+        for (chess_type, stats) in ratings.items():
+            mode = chess_type.split('chess_')[1]
+            if mode not in modes:
+                continue
+
+            rating = stats['rating']
+
+            if mode not in modes_buckets.keys():
+                modes_buckets[mode] = []
+            modes_buckets[mode].append((chess_user, rating))
+    
+    for mode, players_ratings in modes_buckets.items():
+        modes_buckets[mode] = sorted(players_ratings, key=lambda x: x[1], reverse=True)[:9]
+    
+    message = ''
+    for mode in modes:
+        message += format_mode_ratings(mode, modes_buckets[mode])
+    if len(message) > 0:
+        message = message[:-1]
+    
+    context.bot.send_message(chat_id=update.effective_chat.id,
+                            text=message)
 
 
 def link_account_handler(update, context):
@@ -100,7 +153,9 @@ def get_ecos_info_handler(update, context):
 eco_handler = CommandHandler('get_top_ecos', get_ecos_info_handler)
 link_handler = CommandHandler('link_account', link_account_handler)
 rating_handler = CommandHandler('rating', get_rating_handler)
+ratings_handler = CommandHandler('ratings', get_ratings_handler)
 dispatcher.add_handler(eco_handler)
 dispatcher.add_handler(rating_handler)
+dispatcher.add_handler(ratings_handler)
 dispatcher.add_handler(link_handler)
 updater.start_polling()
