@@ -1,8 +1,8 @@
 from telegram.ext import Updater, CommandHandler
 import json
-import datetime
+from datetime import timedelta, datetime
 from rating import get_ratings
-from games import get_top_eco_analysis
+from games import get_top_eco_analysis, get_games, result_map
 from db import link_account, get_linked_account, get_all_linked_accounts
 
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
@@ -22,6 +22,51 @@ def send_message(context, update, message):
                                  text=message)
 
 
+def send_photo(context, update, pic):
+    try:
+        context.bot.send_photo(chat_id=update.effective_chat.id, photo=pic)
+    except:
+        context.bot.send_photo(chat_id=update.effective_chat.id, photo=pic)
+
+
+def results_handler(update, context):
+    words = update.message.text.split(' ')
+    if len(words) == 2:
+        player = words[1]
+        now = datetime.now()
+        all_games = []
+        for game_type in TRACKED_MODES:
+            all_games.extend(get_games(player, game_type,
+                                       now.year, now.month, now.year, now.month))
+        recent_games = []
+        ret = []
+
+        for game in all_games:
+            game_date = game.headers["UTCDate"]
+            game_time = game.headers["UTCTime"]
+            datetime_str = f"{game_date} {game_time}"
+            set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S')
+            set_date_local = set_date - timedelta(hours=3)
+            if set_date_local > (now - timedelta(minutes=30)):
+                recent_games.append(
+                    [game.headers["playing_as"], game.headers["Result"]])
+        for game in recent_games:
+            ret.append(result_map[game[0]][game[1]])
+
+        print(ret)
+        if len(ret) > 0:
+            if ret[-1] == "loss":
+                send_photo(context, update, pic=open('risitas.jfif', 'rb'))
+            elif ret[-1] == "win":
+                send_photo(context, update, pic=open('5head.png', 'rb'))
+            else:
+                send_message(context, update, "Boooooring")
+        else:
+            send_message(context, update, "No games")
+    else:
+        send_message(context, update, "rekt")
+
+
 def get_rating_for_player_handler(player, update, context):
     ratings = get_ratings(player)
     message = f'Ratings for {player}\n'
@@ -30,7 +75,7 @@ def get_rating_for_player_handler(player, update, context):
         rd = stats['rd']
         mode = chess_type.split('chess_')[-1]
         message += f'{mode}:  {rating} RD({rd})\n'
-    send_message(context,update, message)
+    send_message(context, update, message)
 
 
 def get_rating_handler(update, context):
@@ -42,10 +87,10 @@ def get_rating_handler(update, context):
             get_rating_for_player_handler(player, update, context)
         else:
             send_message(context,
-                update, "Please send the username as well or link your accounts!")
+                         update, "Please send the username as well or link your accounts!")
     elif len(words) > 2:
         send_message(context,
-            update, "What are you trying to pull here? Send just one username!")
+                     update, "What are you trying to pull here? Send just one username!")
     else:
         player = words[1]
         get_rating_for_player_handler(player, update, context)
@@ -57,6 +102,7 @@ def format_mode_ratings(mode, bucket):
         message += f'{player} - {rating}\n'
     return message + f'\n'
 
+
 def get_ratings_handler(update, context):
     args = update.message.text.split(' ')
 
@@ -64,14 +110,15 @@ def get_ratings_handler(update, context):
     if len(args) > 1:
         for arg in args[1:]:
             if arg not in TRACKED_MODES:
-                send_message(context, update, "Why would you be interested in {}? This is not supported, remove it!".format(arg))
+                send_message(
+                    context, update, "Why would you be interested in {}? This is not supported, remove it!".format(arg))
                 return
             modes.append(arg)
     else:
         modes = TRACKED_MODES
-    
+
     send_message(context, update, "Alright, give me a second...")
-    
+
     accounts = get_all_linked_accounts()
     modes_buckets = {}
     for chess_user in accounts:
@@ -90,10 +137,11 @@ def get_ratings_handler(update, context):
             if mode not in modes_buckets.keys():
                 modes_buckets[mode] = []
             modes_buckets[mode].append((chess_user, rating))
-    
+
     for mode, players_ratings in modes_buckets.items():
-        modes_buckets[mode] = sorted(players_ratings, key=lambda x: x[1], reverse=True)[:9]
-    
+        modes_buckets[mode] = sorted(
+            players_ratings, key=lambda x: x[1], reverse=True)[:9]
+
     message = ''
     for mode in modes:
         if mode in modes_buckets.keys():
@@ -103,7 +151,8 @@ def get_ratings_handler(update, context):
         message = message[:-1]
         send_message(context, update, message)
     else:
-        send_message(context, update, "Nothing to show here. Are you sure the people are playing this?")
+        send_message(
+            context, update, "Nothing to show here. Are you sure the people are playing this?")
 
 
 def link_account_handler(update, context):
@@ -111,9 +160,10 @@ def link_account_handler(update, context):
     if len(words) == 2:
         player = words[1]
         link_account(update.message.from_user.id, player)
-        send_message(context,update,"Linked accounts!")
+        send_message(context, update, "Linked accounts!")
     else:
-        send_message(context,update,"Linked accounts! JK, just trolling since u don't know how to use this command...")
+        send_message(
+            context, update, "Linked accounts! JK, just trolling since u don't know how to use this command...")
 
 
 def format_ecos(ecos):
@@ -132,8 +182,8 @@ def format_ecos(ecos):
 def get_ecos_info_handler(update, context):
     words = update.message.text.split(' ')
     if len(words) == 2:
-        today = datetime.date.today()
-        last_month = today.replace(day=1) - datetime.timedelta(days=1)
+        today = datetime.today()
+        last_month = today.replace(day=1) - timedelta(days=1)
         player = words[1]
         ecos = get_top_eco_analysis(
             player, 'rapid', last_month.year, last_month.month, today.year, today.month)
@@ -149,17 +199,18 @@ def get_ecos_info_handler(update, context):
                 loss = int(eco["loss"] * 100)
                 games = eco["games"]
                 message += f"{eco_code}: {points} (W: {win}%, D: {draw}%, L: {loss}%, G: {games})\n"
-        send_message(context,update,message)
+        send_message(context, update, message)
     else:
-        send_message(context,update,"Try again, lul..")
+        send_message(context, update, "Try again, lul..")
 
 
-eco_handler = CommandHandler('get_top_ecos', get_ecos_info_handler)
-link_handler = CommandHandler('link_account', link_account_handler)
-rating_handler = CommandHandler('rating', get_rating_handler)
-ratings_handler = CommandHandler('ratings', get_ratings_handler)
-dispatcher.add_handler(eco_handler)
-dispatcher.add_handler(rating_handler)
-dispatcher.add_handler(ratings_handler)
-dispatcher.add_handler(link_handler)
+handlers = [
+    CommandHandler('get_top_ecos', get_ecos_info_handler),
+    CommandHandler('link_account', link_account_handler),
+    CommandHandler('rating', get_rating_handler),
+    CommandHandler('ratings', get_ratings_handler), 
+    CommandHandler('result', results_handler)
+]
+for handler in handlers:
+    dispatcher.add_handler(handler)
 updater.start_polling()
