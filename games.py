@@ -47,10 +47,9 @@ def get_games_eco(player, time_class, from_year, from_month, to_year, to_month):
     for game in games:
         playing_as = game.headers['playing_as']
         eco = game.headers.get("ECO")
-        g_result = game.headers["Result"]
+        result = game.headers["PlayerResult"]
         if eco not in ecos[playing_as]:
             ecos[playing_as][eco] = {'win': 0, 'loss': 0, 'draw': 0, 'games': 0}
-        result = result_map[playing_as][g_result]
         ecos[playing_as][eco][result] += 1
         ecos[playing_as][eco]['games'] += 1
 

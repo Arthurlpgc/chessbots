@@ -2,7 +2,7 @@ from telegram.ext import Updater, CommandHandler
 import json
 from datetime import timedelta, datetime
 from rating import get_ratings
-from games import get_top_eco_analysis, get_games, result_map
+from games import get_top_eco_analysis, get_games
 from db import link_account, get_linked_account, get_all_linked_accounts
 
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
