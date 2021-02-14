@@ -43,10 +43,9 @@ def results_handler(update, context):
         for game in all_games:
             game_date = game.headers["UTCDate"]
             game_time = game.headers["UTCTime"]
-            datetime_str = f"{game_date} {game_time}"
-            set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S')
-            set_date_local = set_date - timedelta(hours=3)
-            if set_date_local > (now - timedelta(minutes=30)):
+            datetime_str = f"{game_date} {game_time} UTC"
+            set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
+            if set_date > (now - timedelta(minutes=30)):
                 ret.append(game.headers["PlayerResult"])
         if len(ret) > 0:
             if ret[-1] == "loss":
