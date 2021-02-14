@@ -74,7 +74,7 @@ def get_ratings_handler(update, context):
     
     accounts = get_all_linked_accounts()
     modes_buckets = {}
-    for _, chess_user in accounts.items():
+    for chess_user in accounts:
         ratings = get_ratings(chess_user)
         for (chess_type, stats) in ratings.items():
             mode = chess_type.split('chess_')[-1]

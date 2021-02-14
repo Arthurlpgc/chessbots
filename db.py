@@ -1,16 +1,26 @@
 import json
+from pymongo import MongoClient
 
-def get_all_linked_accounts():
-    linked_accounts = json.loads(open('db/linked_accounts.json', 'r').read())
-    return linked_accounts
+client = MongoClient('mongo', 27017, username="root", password="example")
+db = client.bot_db
+user_links_collection = db.user_links_collection
+
 
 def link_account(tele_user, chess_user):
-    linked_accounts = get_all_linked_accounts()
-    linked_accounts[tele_user] = chess_user
-    open('db/linked_accounts.json', 'w').write(json.dumps(linked_accounts))
-    
+    tele_user = str(tele_user)
+    linked_account = {"chess_user": chess_user, "tele_user": tele_user}
+    user_links_collection.replace_one(
+        {"tele_user": tele_user}, linked_account, True)
+
+
 def get_linked_account(tele_user):
-    linked_accounts = get_all_linked_accounts()
-    if tele_user not in linked_accounts:
+    tele_user = str(tele_user)
+    user = user_links_collection.find_one({"tele_user": tele_user})
+    if user is None:
         return None
-    return linked_accounts[tele_user]
+    return user["chess_user"]
+
+
+def get_all_linked_accounts():
+    linked_accounts = user_links_collection.find()
+    return [user["chess_user"] for user in linked_accounts]
