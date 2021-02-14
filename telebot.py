@@ -29,36 +29,43 @@ def send_photo(context, update, pic):
         context.bot.send_photo(chat_id=update.effective_chat.id, photo=pic)
 
 
+def results_for_player_handler(player, update, context):
+    now = datetime.now()
+    all_games = []
+    for game_type in TRACKED_MODES:
+        all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
+    ret = []
+    for game in all_games:
+        game_date = game.headers["UTCDate"]
+        game_time = game.headers["UTCTime"]
+        datetime_str = f"{game_date} {game_time} UTC"
+        set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
+        if set_date > (now - timedelta(minutes=30)):
+            ret.append(game.headers["PlayerResult"])
+    if len(ret) > 0:
+        if ret[-1] == "loss":
+            send_photo(context, update, pic=open('risitas.jfif', 'rb'))
+        elif ret[-1] == "win":
+            send_photo(context, update, pic=open('5head.png', 'rb'))
+        else:
+            send_message(context, update, "Boooooring")
+    else:
+        send_message(context, update, "No games")
+
 def results_handler(update, context):
     words = update.message.text.split(' ')
-    if len(words) == 2:
-        player = words[1]
-        now = datetime.now()
-        all_games = []
-        for game_type in TRACKED_MODES:
-            all_games.extend(get_games(player, game_type,
-                                       now.year, now.month, now.year, now.month))
-        ret = []
-
-        for game in all_games:
-            game_date = game.headers["UTCDate"]
-            game_time = game.headers["UTCTime"]
-            datetime_str = f"{game_date} {game_time} UTC"
-            set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
-            if set_date > (now - timedelta(minutes=30)):
-                ret.append(game.headers["PlayerResult"])
-        if len(ret) > 0:
-            if ret[-1] == "loss":
-                send_photo(context, update, pic=open('risitas.jfif', 'rb'))
-            elif ret[-1] == "win":
-                send_photo(context, update, pic=open('5head.png', 'rb'))
-            else:
-                send_message(context, update, "Boooooring")
+    if len(words) == 1:
+        uid = str(update.message.from_user.id)
+        player = get_linked_account(uid)
+        if player is not None:
+            results_for_player_handler(player, update, context)
         else:
-            send_message(context, update, "No games")
+            send_message(context, update, "Please send the username as well or link your accounts!")
+    elif len(words) > 2:
+        send_message(context, update, "What are you trying to pull here? Send just one username!")
     else:
-        send_message(context, update, "rekt")
-
+        player = words[1]
+        results_for_player_handler(player, update, context)
 
 def get_rating_for_player_handler(player, update, context):
     ratings = get_ratings(player)
