@@ -38,7 +38,6 @@ def results_handler(update, context):
         for game_type in TRACKED_MODES:
             all_games.extend(get_games(player, game_type,
                                        now.year, now.month, now.year, now.month))
-        recent_games = []
         ret = []
 
         for game in all_games:
@@ -48,12 +47,7 @@ def results_handler(update, context):
             set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S')
             set_date_local = set_date - timedelta(hours=3)
             if set_date_local > (now - timedelta(minutes=30)):
-                recent_games.append(
-                    [game.headers["playing_as"], game.headers["Result"]])
-        for game in recent_games:
-            ret.append(result_map[game[0]][game[1]])
-
-        print(ret)
+                ret.append(game.headers["PlayerResult"])
         if len(ret) > 0:
             if ret[-1] == "loss":
                 send_photo(context, update, pic=open('risitas.jfif', 'rb'))

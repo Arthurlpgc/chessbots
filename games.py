@@ -28,6 +28,7 @@ def get_games_by_month(player, time_class, year, month):
             pgn = io.StringIO(c_game['pgn'])
             game = chess.pgn.read_game(pgn)
             game.headers['playing_as'] = playing_as
+            game.headers['PlayerResult'] = result_map[playing_as][game.headers['Result']]
             games.append(game)
     return games
 
