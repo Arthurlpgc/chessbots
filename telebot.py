@@ -40,7 +40,7 @@ def results_for_player_handler(player, update, context):
         game_time = game.headers["UTCTime"]
         datetime_str = f"{game_date} {game_time} UTC"
         set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
-        if set_date > (now - timedelta(minutes=30)):
+        if set_date > (now - timedelta(hours=24)):
             ret.append(game.headers["PlayerResult"])
     if len(ret) > 0:
         if ret[-1] == "loss":
