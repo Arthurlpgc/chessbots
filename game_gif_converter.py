@@ -18,7 +18,7 @@ def game_to_gif(game, duration=0.5):
     pgn_file.write(str(game))
     pgn_file.close()
     pgn_creator = pgn2gif.PgnToGifCreator(
-        reverse=reverse, duration=duration, ws_color='#eeeed2', bs_color='#769656')
+        reverse=reverse, duration=duration, ws_color='#eeedd5', bs_color='#7c945d')
     pgn_creator.create_gif(
         f'output/{title}.pgn', out_path=f'output/{title}.gif')
     return f'output/{title}.gif'
