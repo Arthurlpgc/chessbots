@@ -69,6 +69,7 @@ def results_for_player_handler(player, update, context):
     all_games = []
     for game_type in TRACKED_MODES:
         all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
+    all_games.sort(key=get_game_datetime)
     ret = []
     for game in all_games:
         set_date = get_game_datetime(game)
