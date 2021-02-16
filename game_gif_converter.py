@@ -19,10 +19,6 @@ def game_to_gif(game, duration=0.5):
     pgn_file.close()
     pgn_creator = pgn2gif.PgnToGifCreator(
         reverse=reverse, duration=duration, ws_color='white', bs_color='gray')
-    print('piroca')
     pgn_creator.create_gif(
         f'output/{title}.pgn', out_path=f'output/{title}.gif')
     return f'output/{title}.gif'
-
-
-game_to_gif(get_games("dpeter9", "rapid", 2021, 2, 2021, 2)[-1])
