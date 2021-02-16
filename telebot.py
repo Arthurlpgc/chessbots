@@ -71,7 +71,7 @@ def results_for_player_handler(player, update, context):
         all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
     ret = []
     for game in all_games:
-        set_date = get_game_time(game)
+        set_date = get_game_datetime(game)
         if set_date > (now - timedelta(hours=24)):
             ret.append(game.headers["PlayerResult"])
     if len(ret) > 0:
