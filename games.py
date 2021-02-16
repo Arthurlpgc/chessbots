@@ -19,6 +19,13 @@ result_map = {
 }
 
 
+def get_game_datetime(game):
+    game_date = game.headers["UTCDate"]
+    game_time = game.headers["UTCTime"]
+    datetime_str = f"{game_date} {game_time} UTC"
+    return datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
+
+
 def get_games_by_month(player, time_class, year, month):
     c_games = get_player_games_by_month(player, year, month).json['games']
     games = []

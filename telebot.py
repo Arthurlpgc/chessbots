@@ -2,9 +2,9 @@ from telegram.ext import Updater, CommandHandler
 import json
 from datetime import timedelta, datetime
 from rating import get_ratings
-from games import get_top_eco_analysis, get_games
+from games import get_top_eco_analysis, get_games, get_game_datetime
 from db import link_account, get_linked_account, get_all_linked_accounts
-
+from game_gif_converter import game_to_gif
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
 
 TRACKED_MODES = ['rapid', 'blitz', 'bullet', 'daily']
@@ -29,6 +29,41 @@ def send_photo(context, update, pic):
         context.bot.send_photo(chat_id=update.effective_chat.id, photo=pic)
 
 
+def send_animation(context, update, pic):
+    try:
+        context.bot.send_animation(chat_id=update.effective_chat.id, animation=pic)
+    except:
+        context.bot.send_animation(chat_id=update.effective_chat.id, animation=pic)
+
+
+
+def last_game_for_player_handler(player, update, context):
+    now = datetime.now()
+    all_games = []
+    for game_type in TRACKED_MODES:
+        all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
+    all_games.sort(key=get_game_datetime)
+    if len(all_games) > 0:
+        send_animation(context, update, pic=open(game_to_gif(all_games[-1]), 'rb'))
+    else:
+        send_message(context, update, "No games")
+
+def last_game_handler(update, context):
+    words = update.message.text.split(' ')
+    if len(words) == 1:
+        uid = str(update.message.from_user.id)
+        player = get_linked_account(uid)
+        if player is not None:
+            last_game_for_player_handler(player, update, context)
+        else:
+            send_message(context, update, "Please send the username as well or link your accounts!")
+    elif len(words) > 2:
+        send_message(context, update, "What are you trying to pull here? Send just one username!")
+    else:
+        player = words[1]
+        last_game_for_player_handler(player, update, context)
+
+
 def results_for_player_handler(player, update, context):
     now = datetime.now()
     all_games = []
@@ -36,10 +71,7 @@ def results_for_player_handler(player, update, context):
         all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
     ret = []
     for game in all_games:
-        game_date = game.headers["UTCDate"]
-        game_time = game.headers["UTCTime"]
-        datetime_str = f"{game_date} {game_time} UTC"
-        set_date = datetime.strptime(datetime_str, '%Y.%m.%d %H:%M:%S %Z')
+        set_date = get_game_time(game)
         if set_date > (now - timedelta(hours=24)):
             ret.append(game.headers["PlayerResult"])
     if len(ret) > 0:
@@ -209,6 +241,7 @@ handlers = [
     CommandHandler('link_account', link_account_handler),
     CommandHandler('rating', get_rating_handler),
     CommandHandler('ratings', get_ratings_handler), 
+    CommandHandler('last_game', last_game_handler),
     CommandHandler('result', results_handler)
 ]
 for handler in handlers:

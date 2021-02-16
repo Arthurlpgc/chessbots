@@ -4,6 +4,8 @@ services:
     build: .
     links:
       - mongo
+    volumes:
+      - ./output:/app/output
   mongo:
     image: mongo
     restart: always
