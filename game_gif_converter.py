@@ -11,7 +11,7 @@ def random_title():
     return title
 
 
-def game_to_gif(game, duration=1):
+def game_to_gif(game, duration=0.75):
     reverse = game.headers["playing_as"] == "black"
     title = random_title()
     pgn_file = open(f'output/{title}.pgn', 'w')
