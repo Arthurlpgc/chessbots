@@ -3,7 +3,7 @@ import json
 from datetime import timedelta, datetime
 from rating import get_ratings
 from games import get_top_eco_analysis, get_games, get_game_datetime
-from db import link_account, get_linked_account, get_all_linked_accounts
+from db import link_account, add_to_group, remove_from_group, get_linked_account, get_all_linked_accounts
 from game_gif_converter import game_to_gif
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
 
@@ -31,44 +31,33 @@ def send_photo(context, update, pic):
 
 def send_animation(context, update, pic):
     try:
-        context.bot.send_animation(chat_id=update.effective_chat.id, animation=pic)
+        context.bot.send_animation(
+            chat_id=update.effective_chat.id, animation=pic)
     except:
-        context.bot.send_animation(chat_id=update.effective_chat.id, animation=pic)
+        context.bot.send_animation(
+            chat_id=update.effective_chat.id, animation=pic)
 
 
-
-def last_game_for_player_handler(player, update, context):
+def last_game_handler(update, context, player):
     now = datetime.now()
     all_games = []
     for game_type in TRACKED_MODES:
-        all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
+        all_games.extend(get_games(player, game_type, now.year,
+                                   now.month, now.year, now.month))
     all_games.sort(key=get_game_datetime)
     if len(all_games) > 0:
-        send_animation(context, update, pic=open(game_to_gif(all_games[-1]), 'rb'))
+        send_animation(context, update, pic=open(
+            game_to_gif(all_games[-1]), 'rb'))
     else:
         send_message(context, update, "No games")
 
-def last_game_handler(update, context):
-    words = update.message.text.split(' ')
-    if len(words) == 1:
-        uid = str(update.message.from_user.id)
-        player = get_linked_account(uid)
-        if player is not None:
-            last_game_for_player_handler(player, update, context)
-        else:
-            send_message(context, update, "Please send the username as well or link your accounts!")
-    elif len(words) > 2:
-        send_message(context, update, "What are you trying to pull here? Send just one username!")
-    else:
-        player = words[1]
-        last_game_for_player_handler(player, update, context)
 
-
-def results_for_player_handler(player, update, context):
+def results_handler(update, context, player):
     now = datetime.now()
     all_games = []
     for game_type in TRACKED_MODES:
-        all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
+        all_games.extend(get_games(player, game_type, now.year,
+                                   now.month, now.year, now.month))
     all_games.sort(key=get_game_datetime)
     ret = []
     for game in all_games:
@@ -85,22 +74,8 @@ def results_for_player_handler(player, update, context):
     else:
         send_message(context, update, "No games")
 
-def results_handler(update, context):
-    words = update.message.text.split(' ')
-    if len(words) == 1:
-        uid = str(update.message.from_user.id)
-        player = get_linked_account(uid)
-        if player is not None:
-            results_for_player_handler(player, update, context)
-        else:
-            send_message(context, update, "Please send the username as well or link your accounts!")
-    elif len(words) > 2:
-        send_message(context, update, "What are you trying to pull here? Send just one username!")
-    else:
-        player = words[1]
-        results_for_player_handler(player, update, context)
 
-def get_rating_for_player_handler(player, update, context):
+def get_rating_handler(update, context, player):
     ratings = get_ratings(player)
     message = f'Ratings for {player}\n'
     for (chess_type, stats) in ratings.items():
@@ -109,24 +84,6 @@ def get_rating_for_player_handler(player, update, context):
         mode = chess_type.split('chess_')[-1]
         message += f'{mode}:  {rating} RD({rd})\n'
     send_message(context, update, message)
-
-
-def get_rating_handler(update, context):
-    words = update.message.text.split(' ')
-    if len(words) == 1:
-        uid = str(update.message.from_user.id)
-        player = get_linked_account(uid)
-        if player is not None:
-            get_rating_for_player_handler(player, update, context)
-        else:
-            send_message(context,
-                         update, "Please send the username as well or link your accounts!")
-    elif len(words) > 2:
-        send_message(context,
-                     update, "What are you trying to pull here? Send just one username!")
-    else:
-        player = words[1]
-        get_rating_for_player_handler(player, update, context)
 
 
 def format_mode_ratings(mode, bucket):
@@ -152,7 +109,7 @@ def get_ratings_handler(update, context):
 
     send_message(context, update, "Alright, give me a second...")
 
-    accounts = get_all_linked_accounts()
+    accounts = get_all_linked_accounts(update.message.chat.id)
     modes_buckets = {}
     for chess_user in accounts:
         ratings = get_ratings(chess_user)
@@ -199,51 +156,56 @@ def link_account_handler(update, context):
             context, update, "Linked accounts! JK, just trolling since u don't know how to use this command...")
 
 
-def format_ecos(ecos):
-    eco_list = [{
-        "avg_points": (ecos[eco]["win"] + ecos[eco]["draw"]/2.0) / ecos[eco]["games"],
-        "eco": eco,
-        "win": ecos[eco]["win"]/ecos[eco]["games"],
-        "loss": ecos[eco]["loss"]/ecos[eco]["games"],
-        "draw": ecos[eco]["draw"]/ecos[eco]["games"],
-        "games": ecos[eco]["games"]
-    } for eco in ecos]
-    eco_list.sort(key=lambda eco: (eco["avg_points"], -eco["games"]))
-    return eco_list
+def CommandPlayerHandler(command, handler_func, error_message="Please send the username as well or link your accounts!"):
+    def handler(update, context):
+        words = update.message.text.split(' ')
+        if len(words) == 1:
+            uid = str(update.message.from_user.id)
+            player = get_linked_account(uid)
+            if player is not None:
+                handler_func(update, context, player)
+            else:
+                send_message(context,
+                             update, error_message)
+        elif len(words) > 2:
+            send_message(context,
+                         update, error_message)
+        else:
+            player = words[1]
+            handler_func(update, context, player)
+    return CommandHandler(command, handler)
 
 
-def get_ecos_info_handler(update, context):
+def add_to_group_handler(update, context):
     words = update.message.text.split(' ')
-    if len(words) == 2:
-        today = datetime.today()
-        last_month = today.replace(day=1) - timedelta(days=1)
-        player = words[1]
-        ecos = get_top_eco_analysis(
-            player, 'rapid', last_month.year, last_month.month, today.year, today.month)
-        message = ""
-        for color in ecos:
-            message += f"For games in {color}:\n"
-            formatted_ecos = format_ecos(ecos[color])
-            for eco in formatted_ecos:
-                eco_code = eco["eco"]
-                points = "{:.2f}".format(eco["avg_points"])
-                win = int(eco["win"] * 100)
-                draw = int(eco["draw"] * 100)
-                loss = int(eco["loss"] * 100)
-                games = eco["games"]
-                message += f"{eco_code}: {points} (W: {win}%, D: {draw}%, L: {loss}%, G: {games})\n"
-        send_message(context, update, message)
+    if len(words) >= 2:
+        for player in words[1:]:
+            add_to_group(update.message.chat.id, player)
+            send_message(context, update, "Account added! "+player)
     else:
-        send_message(context, update, "Try again, lul..")
+        send_message(
+            context, update, "No accounts really?")
+
+
+def remove_from_group_handler(update, context):
+    words = update.message.text.split(' ')
+    if len(words) >= 2:
+        for player in words[1:]:
+            remove_from_group(update.message.chat.id, player)
+            send_message(context, update, "Account removed! "+player)
+    else:
+        send_message(
+            context, update, "No accounts really?")
 
 
 handlers = [
-    CommandHandler('get_top_ecos', get_ecos_info_handler),
     CommandHandler('link_account', link_account_handler),
-    CommandHandler('rating', get_rating_handler),
-    CommandHandler('ratings', get_ratings_handler), 
-    CommandHandler('last_game', last_game_handler),
-    CommandHandler('result', results_handler)
+    CommandPlayerHandler('rating', get_rating_handler),
+    CommandHandler('add_to_group', add_to_group_handler),
+    CommandHandler('remove_from_group', remove_from_group_handler),
+    CommandHandler('ratings', get_ratings_handler),
+    CommandPlayerHandler('last_game', last_game_handler),
+    CommandPlayerHandler('result', results_handler)
 ]
 for handler in handlers:
     dispatcher.add_handler(handler)
