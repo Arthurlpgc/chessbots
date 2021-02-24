@@ -19,6 +19,10 @@ result_map = {
 }
 
 
+def get_game_id(game):
+    return game.headers["Link"].split('/')[-1]
+
+
 def get_game_datetime(game):
     game_date = game.headers["UTCDate"]
     game_time = game.headers["UTCTime"]

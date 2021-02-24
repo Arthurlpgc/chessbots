@@ -1,10 +1,14 @@
 from telegram.ext import Updater, CommandHandler
 import json
+from io import StringIO
 from datetime import timedelta, datetime
-from rating import get_ratings
-from games import get_top_eco_analysis, get_games, get_game_datetime
+
+from chessdotcom_lib.rating import get_ratings
+from chessdotcom_lib.games import get_top_eco_analysis, get_games, get_game_datetime
 from db import link_account, get_linked_account, get_all_linked_accounts
-from game_gif_converter import game_to_gif
+from game_replay_engines.gif_engine import game_to_gif
+from game_replay_engines.video_engine import game_to_video
+
 TOKEN = json.loads(open('secret.json', 'r').read())["telegram_bot"]
 
 TRACKED_MODES = ['rapid', 'blitz', 'bullet', 'daily']
@@ -15,11 +19,9 @@ dispatcher = updater.dispatcher
 
 def send_message(context, update, message):
     try:
-        context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text=message)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
     except:
-        context.bot.send_message(chat_id=update.effective_chat.id,
-                                 text=message)
+        context.bot.send_message(chat_id=update.effective_chat.id, text=message)
 
 
 def send_photo(context, update, pic):
@@ -36,32 +38,56 @@ def send_animation(context, update, pic):
         context.bot.send_animation(chat_id=update.effective_chat.id, animation=pic)
 
 
+def send_video(context, update, video):
+    try:
+        context.bot.send_video(chat_id=update.effective_chat.id, video=video, supports_streaming=True)
+    except:
+        context.bot.send_video(chat_id=update.effective_chat.id, video=video, supports_streaming=True)
 
-def last_game_for_player_handler(player, update, context):
+
+
+def last_game_for_player_handler(player, update, context, replay_engine):
+    send_message(context, update, "Give me a second...")
     now = datetime.now()
     all_games = []
     for game_type in TRACKED_MODES:
         all_games.extend(get_games(player, game_type, now.year, now.month, now.year, now.month))
     all_games.sort(key=get_game_datetime)
     if len(all_games) > 0:
-        send_animation(context, update, pic=open(game_to_gif(all_games[-1]), 'rb'))
+        game = all_games[-1]
+        if replay_engine == "video":
+            video_path, clean_up = game_to_video(game)
+            send_video(context, update, video=open(video_path, 'rb'))
+            clean_up()
+        elif replay_engine == "gif":
+            gif_path, clean_up = game_to_gif(game)
+            send_animation(context, update, pic=open(gif_path, 'rb'))
+            clean_up()
+        else:
+            send_message(context, update, f'If you want to see your game as a {replay_engine}, implement it yourself')
     else:
         send_message(context, update, "No games")
 
-def last_game_handler(update, context):
+def last_game_handler(update, context, replay_engine="video"):
     words = update.message.text.split(' ')
     if len(words) == 1:
         uid = str(update.message.from_user.id)
         player = get_linked_account(uid)
         if player is not None:
-            last_game_for_player_handler(player, update, context)
+            last_game_for_player_handler(player, update, context, replay_engine)
         else:
             send_message(context, update, "Please send the username as well or link your accounts!")
     elif len(words) > 2:
         send_message(context, update, "What are you trying to pull here? Send just one username!")
     else:
         player = words[1]
-        last_game_for_player_handler(player, update, context)
+        last_game_for_player_handler(player, update, context, replay_engine)
+
+def video_last_game_handler(update, context):
+    last_game_handler(update, context)
+
+def gif_last_game_handler(update, context):
+    last_game_handler(update, context, 'gif')
 
 
 def results_for_player_handler(player, update, context):
@@ -77,9 +103,9 @@ def results_for_player_handler(player, update, context):
             ret.append(game.headers["PlayerResult"])
     if len(ret) > 0:
         if ret[-1] == "loss":
-            send_photo(context, update, pic=open('risitas.jfif', 'rb'))
+            send_photo(context, update, pic=open('assets/result/risitas.jfif', 'rb'))
         elif ret[-1] == "win":
-            send_photo(context, update, pic=open('5head.png', 'rb'))
+            send_photo(context, update, pic=open('assets/result/5head.png', 'rb'))
         else:
             send_message(context, update, "Boooooring")
     else:
@@ -242,7 +268,8 @@ handlers = [
     CommandHandler('link_account', link_account_handler),
     CommandHandler('rating', get_rating_handler),
     CommandHandler('ratings', get_ratings_handler), 
-    CommandHandler('last_game', last_game_handler),
+    CommandHandler('last_game', video_last_game_handler),
+    CommandHandler('last_game_gif', gif_last_game_handler),
     CommandHandler('result', results_handler)
 ]
 for handler in handlers:

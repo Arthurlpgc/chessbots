@@ -3,4 +3,4 @@ chess.com
 python-chess
 python-dateutil
 pymongo
-
+opencv-python
